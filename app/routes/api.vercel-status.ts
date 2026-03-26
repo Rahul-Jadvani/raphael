@@ -1,4 +1,4 @@
-import { json } from '@remix-run/cloudflare';
+import { json } from '@remix-run/node';
 import { isVercelConfigured, getVercelProjectInfo } from '~/lib/.server/vercel-deploy';
 
 export async function loader() {

@@ -12,7 +12,7 @@
  * Only Mem0 API is used here. IndexedDB fallback happens client-side.
  */
 
-import { json, type ActionFunctionArgs, type LoaderFunctionArgs } from '@remix-run/cloudflare';
+import { json, type ActionFunctionArgs, type LoaderFunctionArgs } from '@remix-run/node';
 import { MemoryClient } from 'mem0ai';
 import type { SaveContextOptions } from '~/types/memory';
 

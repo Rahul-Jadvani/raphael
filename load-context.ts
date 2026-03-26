@@ -1,9 +1,3 @@
-import { type PlatformProxy } from 'wrangler';
-
-type Cloudflare = Omit<PlatformProxy<Env>, 'dispose'>;
-
-declare module '@remix-run/cloudflare' {
-  interface AppLoadContext {
-    cloudflare: Cloudflare;
-  }
-}
+// No-op: Cloudflare load context is not used in Node.js runtime.
+// Environment variables are accessed via process.env.
+export {};

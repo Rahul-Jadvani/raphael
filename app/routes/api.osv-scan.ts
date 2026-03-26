@@ -1,4 +1,4 @@
-import { json, type ActionFunctionArgs } from '@remix-run/cloudflare';
+import { json, type ActionFunctionArgs } from '@remix-run/node';
 import type { OsvScanResult, OsvVulnerability, PackageInfo } from '~/types/osv';
 import { extractAllPackages, detectManifestType } from '~/lib/security/manifest-parsers';
 import { scanPackages } from '~/lib/security/osv-client';

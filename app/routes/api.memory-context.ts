@@ -7,7 +7,7 @@
  * to be injected into the AI prompt
  */
 
-import { json, type ActionFunctionArgs } from '@remix-run/cloudflare';
+import { json, type ActionFunctionArgs } from '@remix-run/node';
 import { MemoryClient } from 'mem0ai';
 import type { ContextOptions, Memory } from '~/types/memory';
 
