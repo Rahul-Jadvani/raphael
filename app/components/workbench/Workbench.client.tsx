@@ -545,150 +545,161 @@ export const Workbench = memo(
       [handleInputChange],
     );
 
-    const handleZapScanStart = useCallback(async (config: { autoDeploy: boolean; manualUrl?: string }) => {
-      try {
-        console.log('='.repeat(60));
-        console.log('[DAST] Starting OWASP ZAP scan...');
-        console.log('[DAST] Timestamp:', new Date().toISOString());
-        console.log('[DAST] Auto-deploy:', config.autoDeploy);
-        console.log('[DAST] Manual URL:', config.manualUrl || '(none)');
+    const handleZapScanStart = useCallback(
+      async (config: { autoDeploy: boolean; manualUrl?: string; scanMode?: 'quick' | 'deep' }) => {
+        try {
+          const scanMode = config.scanMode || 'quick';
+          const isQuickScan = scanMode === 'quick';
 
-        // Show user-friendly notification
-        if (config.autoDeploy) {
-          toast.info('Auto-deploying and scanning... This may take 5-15 minutes. Please keep the browser open.', {
-            autoClose: 10000,
-          });
-        } else {
-          toast.info('Starting DAST scan... This may take 5-10 minutes. Please keep the browser open.', {
-            autoClose: 8000,
-          });
-        }
+          console.log('='.repeat(60));
+          console.log(`[DAST] Starting ${isQuickScan ? 'Quick' : 'Deep (ZAP)'} scan...`);
+          console.log('[DAST] Timestamp:', new Date().toISOString());
+          console.log('[DAST] Manual URL:', config.manualUrl || '(none)');
 
-        setIsDastScanning(true);
-
-        console.log('[DAST] Sending scan request to API...');
-
-        const startTime = Date.now();
-        const response = await fetch('/api/zap-scan', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            targetUrl: config.manualUrl || undefined,
-            autoDeploy: config.autoDeploy,
-          }),
-        });
-
-        const requestDuration = Date.now() - startTime;
-
-        console.log('[DAST] API response received');
-        console.log('[DAST] Request duration:', requestDuration, 'ms');
-        console.log('[DAST] Response status:', response.status);
-
-        if (!response.ok) {
-          const errorText = await response.text();
-
-          console.error('[DAST] API returned error status:', response.status);
-          console.error('[DAST] Error response:', errorText);
-
-          throw new Error(`API returned ${response.status}: ${errorText}`);
-        }
-
-        const result = (await response.json()) as {
-          success: boolean;
-          alerts: any[];
-          stats: { total: number; high: number; medium: number; low: number; info: number };
-          scanDuration: number;
-          targetUrl: string;
-          error?: string;
-        };
-
-        console.log('[DAST] Scan completed successfully');
-        console.log('[DAST] Success:', result.success);
-        console.log('[DAST] Total alerts:', result.stats?.total || 0);
-        console.log('[DAST] Alert breakdown:', {
-          high: result.stats?.high || 0,
-          medium: result.stats?.medium || 0,
-          low: result.stats?.low || 0,
-          info: result.stats?.info || 0,
-        });
-        console.log('[DAST] Scan duration:', result.scanDuration, 'ms');
-        console.log('='.repeat(60));
-
-        // Store results and show dialog
-        setZapResult(result);
-        setShowZapDialog(true);
-
-        // Show appropriate notification based on results
-        if (result.success && result.stats.total > 0) {
-          const criticalCount = result.stats.high || 0;
-          const mediumCount = result.stats.medium || 0;
-
-          if (criticalCount > 0) {
-            toast.error(`Found ${result.stats.total} security alert(s) including ${criticalCount} high-risk!`, {
-              autoClose: 8000,
-            });
-          } else if (mediumCount > 0) {
-            toast.warning(`Found ${result.stats.total} security alert(s) including ${mediumCount} medium-risk`, {
-              autoClose: 6000,
-            });
-          } else {
-            toast.warning(`Found ${result.stats.total} security alert(s)`, {
+          // Show user-friendly notification
+          if (isQuickScan) {
+            toast.info('Starting Quick DAST scan... This takes about 15 seconds.', {
               autoClose: 5000,
             });
-          }
-        } else if (result.success) {
-          toast.success('No security alerts found! Your application looks secure.', {
-            autoClose: 4000,
-          });
-        } else {
-          console.error('[DAST] Scan failed with error:', result.error);
-
-          // Show user-friendly error message
-          if (result.error?.includes('Vercel is not configured')) {
-            toast.error('Vercel Setup Required', {
-              autoClose: false,
-              closeButton: true,
-            });
-            toast.info('Please run: npm install -g vercel && vercel login && vercel link', {
+          } else if (config.autoDeploy) {
+            toast.info('Auto-deploying and scanning... This may take 5-15 minutes. Please keep the browser open.', {
               autoClose: 10000,
             });
           } else {
-            toast.error(result.error || 'DAST scan failed. Check console for details.', {
+            toast.info('Starting Deep DAST scan... This may take 5-10 minutes. Please keep the browser open.', {
               autoClose: 8000,
             });
           }
+
+          setIsDastScanning(true);
+
+          const endpoint = isQuickScan ? '/api/dast-scan' : '/api/zap-scan';
+
+          console.log('[DAST] Sending scan request to', endpoint);
+
+          const startTime = Date.now();
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              targetUrl: config.manualUrl || undefined,
+              autoDeploy: isQuickScan ? false : config.autoDeploy,
+            }),
+          });
+
+          const requestDuration = Date.now() - startTime;
+
+          console.log('[DAST] API response received');
+          console.log('[DAST] Request duration:', requestDuration, 'ms');
+          console.log('[DAST] Response status:', response.status);
+
+          if (!response.ok) {
+            const errorText = await response.text();
+
+            console.error('[DAST] API returned error status:', response.status);
+            console.error('[DAST] Error response:', errorText);
+
+            throw new Error(`API returned ${response.status}: ${errorText}`);
+          }
+
+          const result = (await response.json()) as {
+            success: boolean;
+            alerts: any[];
+            stats: { total: number; high: number; medium: number; low: number; info: number };
+            scanDuration: number;
+            targetUrl: string;
+            error?: string;
+          };
+
+          console.log('[DAST] Scan completed successfully');
+          console.log('[DAST] Success:', result.success);
+          console.log('[DAST] Total alerts:', result.stats?.total || 0);
+          console.log('[DAST] Alert breakdown:', {
+            high: result.stats?.high || 0,
+            medium: result.stats?.medium || 0,
+            low: result.stats?.low || 0,
+            info: result.stats?.info || 0,
+          });
+          console.log('[DAST] Scan duration:', result.scanDuration, 'ms');
+          console.log('='.repeat(60));
+
+          // Store results and show dialog
+          setZapResult(result);
+          setShowZapDialog(true);
+
+          // Show appropriate notification based on results
+          if (result.success && result.stats.total > 0) {
+            const criticalCount = result.stats.high || 0;
+            const mediumCount = result.stats.medium || 0;
+
+            if (criticalCount > 0) {
+              toast.error(`Found ${result.stats.total} security alert(s) including ${criticalCount} high-risk!`, {
+                autoClose: 8000,
+              });
+            } else if (mediumCount > 0) {
+              toast.warning(`Found ${result.stats.total} security alert(s) including ${mediumCount} medium-risk`, {
+                autoClose: 6000,
+              });
+            } else {
+              toast.warning(`Found ${result.stats.total} security alert(s)`, {
+                autoClose: 5000,
+              });
+            }
+          } else if (result.success) {
+            toast.success('No security alerts found! Your application looks secure.', {
+              autoClose: 4000,
+            });
+          } else {
+            console.error('[DAST] Scan failed with error:', result.error);
+
+            // Show user-friendly error message
+            if (result.error?.includes('Vercel is not configured')) {
+              toast.error('Vercel Setup Required', {
+                autoClose: false,
+                closeButton: true,
+              });
+              toast.info('Please run: npm install -g vercel && vercel login && vercel link', {
+                autoClose: 10000,
+              });
+            } else {
+              toast.error(result.error || 'DAST scan failed. Check console for details.', {
+                autoClose: 8000,
+              });
+            }
+          }
+        } catch (error: any) {
+          console.error('='.repeat(60));
+          console.error('[DAST] Unexpected error during scan');
+          console.error('[DAST] Error type:', error?.constructor?.name);
+          console.error('[DAST] Error message:', error?.message);
+          console.error('[DAST] Error stack:', error?.stack);
+          console.error('='.repeat(60));
+
+          // Show user-friendly error message
+          let errorMessage = 'Failed to run DAST scan. ';
+
+          if (error?.message?.includes('fetch')) {
+            errorMessage += 'Could not connect to the scan API. Please ensure the server is running.';
+          } else if (error?.message?.includes('timeout')) {
+            errorMessage += 'The scan took too long. Try scanning a smaller application.';
+          } else if (error?.message) {
+            errorMessage += error.message;
+          } else {
+            errorMessage += 'An unexpected error occurred. Check the console for details.';
+          }
+
+          toast.error(errorMessage, {
+            autoClose: 8000,
+          });
+        } finally {
+          setIsDastScanning(false);
+          console.log('[DAST] Scan process finished');
         }
-      } catch (error: any) {
-        console.error('='.repeat(60));
-        console.error('[DAST] Unexpected error during scan');
-        console.error('[DAST] Error type:', error?.constructor?.name);
-        console.error('[DAST] Error message:', error?.message);
-        console.error('[DAST] Error stack:', error?.stack);
-        console.error('='.repeat(60));
-
-        // Show user-friendly error message
-        let errorMessage = 'Failed to run DAST scan. ';
-
-        if (error?.message?.includes('fetch')) {
-          errorMessage += 'Could not connect to the scan API. Please ensure the server is running.';
-        } else if (error?.message?.includes('timeout')) {
-          errorMessage += 'The scan took too long. Try scanning a smaller application.';
-        } else if (error?.message) {
-          errorMessage += error.message;
-        } else {
-          errorMessage += 'An unexpected error occurred. Check the console for details.';
-        }
-
-        toast.error(errorMessage, {
-          autoClose: 8000,
-        });
-      } finally {
-        setIsDastScanning(false);
-        console.log('[DAST] Scan process finished');
-      }
-    }, []);
+      },
+      [],
+    );
 
     const handleZapScan = useCallback(() => {
       setShowZapPrompt(true);

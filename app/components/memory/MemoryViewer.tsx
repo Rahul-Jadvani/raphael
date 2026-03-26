@@ -43,6 +43,8 @@ export function MemoryViewer({ isOpen, onClose, chatId }: MemoryViewerProps) {
         return;
       }
 
+      const userId = config.userId || chatId;
+
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
       };
@@ -50,6 +52,8 @@ export function MemoryViewer({ isOpen, onClose, chatId }: MemoryViewerProps) {
       if (config.apiKey) {
         headers['x-mem0-api-key'] = config.apiKey;
       }
+
+      headers['x-mem0-user-id'] = userId;
 
       const url = new URL('/api/memory', window.location.origin);
       url.searchParams.set('chatId', chatId);
@@ -91,6 +95,7 @@ export function MemoryViewer({ isOpen, onClose, chatId }: MemoryViewerProps) {
 
     try {
       const config = memoryConfigHelpers.getConfig();
+      const userId = config.userId || chatId;
 
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
@@ -99,6 +104,8 @@ export function MemoryViewer({ isOpen, onClose, chatId }: MemoryViewerProps) {
       if (config.apiKey) {
         headers['x-mem0-api-key'] = config.apiKey;
       }
+
+      headers['x-mem0-user-id'] = userId;
 
       const response = await fetch(`/api/memory?id=${memoryId}`, {
         method: 'DELETE',

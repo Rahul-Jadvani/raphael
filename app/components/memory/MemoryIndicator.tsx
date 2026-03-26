@@ -6,8 +6,8 @@
  */
 
 import { useStore } from '@nanostores/react';
-import { useState } from 'react';
-import { loadedMemories, lastSync, memoryStats } from '~/lib/stores/memory';
+import { useState, useEffect, useRef } from 'react';
+import { loadedMemories, lastSync, memoryStats, memoryConfigHelpers } from '~/lib/stores/memory';
 import { classNames } from '~/utils/classNames';
 import { MemoryViewer } from './MemoryViewer';
 
@@ -21,9 +21,48 @@ export function MemoryIndicator({ chatId }: MemoryIndicatorProps = {}) {
   const lastSyncTime = useStore(lastSync);
   const [isExpanded, setIsExpanded] = useState(false);
   const [showViewer, setShowViewer] = useState(false);
+  const [isPulsing, setIsPulsing] = useState(false);
+  const prevSyncRef = useRef(lastSyncTime);
 
-  if (memories.length === 0) {
+  // Bug 6: Pulse animation when lastSync changes
+  useEffect(() => {
+    if (!lastSyncTime || lastSyncTime === prevSyncRef.current) {
+      return undefined;
+    }
+
+    prevSyncRef.current = lastSyncTime;
+    setIsPulsing(true);
+
+    const timer = setTimeout(() => setIsPulsing(false), 2000);
+
+    return () => clearTimeout(timer);
+  }, [lastSyncTime]);
+
+  // Bug 3: Show dormant state when configured but no memories yet
+  const isConfigured = memoryConfigHelpers.isReady();
+
+  if (memories.length === 0 && !isConfigured) {
     return null;
+  }
+
+  // Dormant state - configured but no memories loaded yet
+  if (memories.length === 0 && isConfigured) {
+    return (
+      <div className="relative">
+        <button
+          className={classNames(
+            'flex items-center gap-2 px-3 py-1.5 text-xs rounded-lg transition-colors',
+            'bg-gray-500/10 hover:bg-gray-500/20 border border-gray-500/30',
+            'text-gray-500 dark:text-gray-400',
+            isPulsing && 'animate-pulse ring-2 ring-purple-400/50',
+          )}
+          title="Memory is active - waiting for context"
+        >
+          <span className="text-base opacity-50">🧠</span>
+          <span className="font-medium text-bolt-elements-textTertiary">Memory active</span>
+        </button>
+      </div>
+    );
   }
 
   const formatLastSync = (timestamp: number | undefined): string => {
@@ -60,6 +99,7 @@ export function MemoryIndicator({ chatId }: MemoryIndicatorProps = {}) {
           'flex items-center gap-2 px-3 py-1.5 text-xs rounded-lg transition-colors',
           'bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30',
           'text-purple-600 dark:text-purple-400',
+          isPulsing && 'animate-pulse ring-2 ring-purple-400/50',
         )}
         title="Click to view loaded memories"
       >

@@ -99,7 +99,40 @@ export const OsvDialog = memo(({ isOpen, onClose, result, onInsertIntoPrompt }: 
       return;
     }
 
-    toast.info('PDF export for OSV scans coming soon!', { autoClose: 3000 });
+    try {
+      toast.info('Generating PDF report...', { autoClose: 2000 });
+
+      const response = await fetch('/api/osv-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vulnerabilities: result.vulnerabilities,
+          stats: result.stats,
+          scannedPackages: result.scannedPackages,
+          scannedFiles: result.scannedFiles,
+          scanDuration: result.scanDuration,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`PDF generation failed: ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `osv-report-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success('PDF report downloaded!');
+    } catch (error: any) {
+      console.error('[OSV] PDF download failed:', error);
+      toast.error('Failed to generate PDF report');
+    }
   };
 
   const handleInsertIntoPrompt = () => {

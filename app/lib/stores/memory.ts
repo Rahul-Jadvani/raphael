@@ -285,4 +285,18 @@ if (typeof window !== 'undefined') {
   if (savedAutoSave !== null) {
     autoSaveConfig.setKey('enabled', savedAutoSave === 'true');
   }
+
+  // Bug 4: Auto-enable if API key exists but enabled was never explicitly set
+  if (localStorage.getItem('mem0_api_key') && savedEnabled === null) {
+    memoryConfig.setKey('enabled', true);
+    localStorage.setItem('mem0_enabled', 'true');
+  }
+
+  // Bug 2: Auto-generate persistent userId if none exists
+  if (!localStorage.getItem('mem0_user_id')) {
+    const generatedUserId = `user-${crypto.randomUUID()}`;
+    localStorage.setItem('mem0_user_id', generatedUserId);
+    memoryConfig.setKey('userId', generatedUserId);
+    console.log('[MemoryConfig] Auto-generated userId:', generatedUserId);
+  }
 }

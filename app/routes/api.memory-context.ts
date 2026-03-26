@@ -40,7 +40,10 @@ export async function action({ request }: ActionFunctionArgs) {
       });
     }
 
-    console.log('[Memory Context API] Fetching memories for chatId:', chatId);
+    // Use persistent userId from header, fall back to chatId
+    const userId = request.headers.get('x-mem0-user-id') || chatId;
+
+    console.log('[Memory Context API] Fetching memories for userId:', userId, '(chatId:', chatId, ')');
 
     // Create Mem0 client
     const mem0Client = new MemoryClient({ apiKey });
@@ -57,9 +60,9 @@ export async function action({ request }: ActionFunctionArgs) {
 
       let memories: Memory[] = [];
 
-      // Get all memories for this user
+      // Get all memories for the persistent user (not per-chat)
       const allMemoriesResult = (await mem0Client.getAll({
-        user_id: chatId,
+        user_id: userId,
       })) as any;
 
       console.log('[Memory Context API] Raw Mem0 response:', allMemoriesResult);

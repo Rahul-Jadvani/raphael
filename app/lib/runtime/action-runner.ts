@@ -666,6 +666,19 @@ export class ActionRunner {
       }
     }
 
+    // Handle npm install commands - configure registry and add reliability flags for WebContainer
+    if (/npm\s+(install|i)(\s|$)/.test(trimmedCommand) && !trimmedCommand.includes('--legacy-peer-deps')) {
+      const modifiedCommand = trimmedCommand
+        .replace(/npm install/g, 'npm install --legacy-peer-deps --no-audit --no-fund')
+        .replace(/\bnpm i\b(?!\w)/g, 'npm i --legacy-peer-deps --no-audit --no-fund');
+
+      return {
+        shouldModify: true,
+        modifiedCommand: `npm config set registry https://registry.npmjs.org && npm config set fetch-retry-mintimeout 20000 && npm config set fetch-retry-maxtimeout 120000 && npm config set fetch-retries 5 && ${modifiedCommand}`,
+        warning: 'Configured npm registry with retry settings and added reliability flags',
+      };
+    }
+
     return { shouldModify: false };
   }
 

@@ -51,7 +51,9 @@ export function SaveContextButton({ chatId, context, onSaved }: SaveContextButto
     try {
       console.log('[SaveContextButton] Sending save request...');
 
-      // Prepare headers with API key if available
+      // Prepare headers with API key and userId
+      const userId = config.userId || chatId;
+
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
       };
@@ -60,11 +62,14 @@ export function SaveContextButton({ chatId, context, onSaved }: SaveContextButto
         headers['x-mem0-api-key'] = config.apiKey;
       }
 
+      headers['x-mem0-user-id'] = userId;
+
       const response = await fetch('/api/memory', {
         method: 'POST',
         headers,
         body: JSON.stringify({
           chatId,
+          userId,
           content: context,
           type: 'highlight',
           importance: 'high',

@@ -28,7 +28,7 @@ import type { ElementInfo } from '~/components/workbench/Inspector';
 import type { TextUIPart, FileUIPart, Attachment } from '@ai-sdk/ui-utils';
 import { useMCPStore } from '~/lib/stores/mcp';
 import type { LlmErrorAlertType } from '~/types/actions';
-import { memoryConfigHelpers, memoryHelpers, lastSync } from '~/lib/stores/memory';
+import { memoryConfigHelpers, memoryHelpers, lastSync, autoSaveConfigHelpers } from '~/lib/stores/memory';
 import { getMemoryExtractor } from '~/lib/services/memoryExtractor';
 
 const logger = createScopedLogger('Chat');
@@ -240,6 +240,8 @@ export const ChatImpl = memo(
         try {
           console.log('[Memory] Fetching memories from API...');
 
+          const userId = config.userId || chatId;
+
           const headers: HeadersInit = {
             'Content-Type': 'application/json',
           };
@@ -248,11 +250,14 @@ export const ChatImpl = memo(
             headers['x-mem0-api-key'] = config.apiKey;
           }
 
+          headers['x-mem0-user-id'] = userId;
+
           const response = await fetch('/api/memory-context', {
             method: 'POST',
             headers,
             body: JSON.stringify({
               chatId,
+              userId,
               messages: messages.slice(-5), // Last 5 messages for context
               files,
               limit: 10,
@@ -304,6 +309,11 @@ export const ChatImpl = memo(
           return;
         }
 
+        // Bug 7: Respect autoSaveConfig.enabled
+        if (!autoSaveConfigHelpers.getConfig().enabled) {
+          return;
+        }
+
         // Only save user messages
         const lastMessage = messages[messages.length - 1];
 
@@ -311,23 +321,34 @@ export const ChatImpl = memo(
           return;
         }
 
+        const userId = config.userId || chatId;
+
         const extractor = getMemoryExtractor();
         const extractedMemories = extractor.extractFromMessage(lastMessage, chatId);
 
         // Save each extracted memory
         for (const memory of extractedMemories) {
           try {
-            await fetch('/api/memory', {
+            const res = await fetch('/api/memory', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: {
+                'Content-Type': 'application/json',
+                'x-mem0-api-key': config.apiKey!,
+                'x-mem0-user-id': userId,
+              },
               body: JSON.stringify({
                 chatId,
+                userId,
                 content: memory.content,
                 type: memory.type,
                 metadata: memory.metadata,
                 importance: memory.metadata.importance,
               }),
             });
+
+            if (res.ok) {
+              lastSync.set(Date.now());
+            }
           } catch (error) {
             console.error('[Memory] Failed to save memory:', error);
           }
@@ -339,17 +360,26 @@ export const ChatImpl = memo(
 
           for (const memory of fileMemories) {
             try {
-              await fetch('/api/memory', {
+              const res = await fetch('/api/memory', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                  'Content-Type': 'application/json',
+                  'x-mem0-api-key': config.apiKey!,
+                  'x-mem0-user-id': userId,
+                },
                 body: JSON.stringify({
                   chatId,
+                  userId,
                   content: memory.content,
                   type: memory.type,
                   metadata: memory.metadata,
                   importance: memory.metadata.importance,
                 }),
               });
+
+              if (res.ok) {
+                lastSync.set(Date.now());
+              }
             } catch (error) {
               console.error('[Memory] Failed to save file memory:', error);
             }
@@ -377,12 +407,19 @@ export const ChatImpl = memo(
             return;
           }
 
+          const userId = config.userId || chatId;
+
           // Manually save current input as highlight
           fetch('/api/memory', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              'x-mem0-api-key': config.apiKey!,
+              'x-mem0-user-id': userId,
+            },
             body: JSON.stringify({
               chatId,
+              userId,
               content: input,
               type: 'highlight',
               importance: 'high',

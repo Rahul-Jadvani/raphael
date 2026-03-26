@@ -37,7 +37,7 @@ export const TerminalTabs = memo(() => {
     (index: number) => {
       if (index === 0) {
         return;
-      } // Can't close bolt terminal
+      } // Can't close Raphael terminal
 
       const terminalRef = terminalRefs.current.get(index);
 
@@ -153,7 +153,7 @@ export const TerminalTabs = memo(() => {
                       onClick={() => setActiveTerminal(index)}
                     >
                       <div className="i-ph:terminal-window-duotone text-lg" />
-                      Bolt Terminal
+                      Raphael Terminal
                     </button>
                   ) : (
                     <React.Fragment>

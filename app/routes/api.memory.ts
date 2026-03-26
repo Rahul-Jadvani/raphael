@@ -51,11 +51,15 @@ export async function action({ request }: ActionFunctionArgs) {
       const body = (await request.json()) as SaveContextOptions;
       const { content, metadata = {}, type = 'project', importance = 'medium', chatId } = body;
 
+      // Use persistent userId from header, fall back to chatId
+      const userId = request.headers.get('x-mem0-user-id') || chatId;
+
       console.log('[Memory API] POST request:', {
         contentLength: content?.length,
         type,
         importance,
         chatId,
+        userId,
       });
 
       if (!content) {
@@ -71,7 +75,7 @@ export async function action({ request }: ActionFunctionArgs) {
       // Create Mem0 client
       const mem0Client = new MemoryClient({ apiKey });
 
-      // Add chatId to metadata
+      // Add chatId to metadata (not as user_id)
       const fullMetadata = {
         ...metadata,
         chatId,
@@ -80,7 +84,7 @@ export async function action({ request }: ActionFunctionArgs) {
       };
 
       try {
-        console.log('[Memory API] Adding memory to Mem0...');
+        console.log('[Memory API] Adding memory to Mem0 with user_id:', userId);
 
         // Mem0 expects messages array (not a string)
         const messages = [
@@ -91,7 +95,7 @@ export async function action({ request }: ActionFunctionArgs) {
         ];
 
         const result = await mem0Client.add(messages, {
-          user_id: chatId,
+          user_id: userId,
           metadata: fullMetadata,
         });
 
@@ -121,14 +125,60 @@ export async function action({ request }: ActionFunctionArgs) {
     if (method === 'DELETE') {
       const url = new URL(request.url);
       const memoryId = url.searchParams.get('id');
+      const clearAll = url.searchParams.get('clearAll') === 'true';
+
+      // Create Mem0 client
+      const mem0Client = new MemoryClient({ apiKey });
+
+      // Clear all memories for the user
+      if (clearAll) {
+        const userId = request.headers.get('x-mem0-user-id') || 'default';
+
+        try {
+          console.log('[Memory API] Clearing all memories for user:', userId);
+
+          const allMemories = (await mem0Client.getAll({ user_id: userId })) as any;
+          const memories = allMemories.results || allMemories || [];
+          let deletedCount = 0;
+
+          for (const mem of memories) {
+            const id = mem.id || mem.memory_id;
+
+            if (id) {
+              try {
+                await mem0Client.delete(id);
+                deletedCount++;
+              } catch {
+                console.warn('[Memory API] Failed to delete memory:', id);
+              }
+            }
+          }
+
+          console.log('[Memory API] Cleared', deletedCount, 'memories');
+
+          return json({
+            success: true,
+            deletedCount,
+            backend: 'mem0',
+          });
+        } catch (mem0Error: any) {
+          console.error('[Memory API] Mem0 clearAll error:', mem0Error);
+
+          return json(
+            {
+              success: false,
+              error: mem0Error?.message || 'Failed to clear memories',
+              backend: 'mem0',
+            },
+            { status: 500 },
+          );
+        }
+      }
 
       if (!memoryId) {
         console.error('[Memory API] Missing memory ID');
         return json({ success: false, error: 'Memory ID is required' }, { status: 400 });
       }
-
-      // Create Mem0 client
-      const mem0Client = new MemoryClient({ apiKey });
 
       try {
         console.log('[Memory API] Deleting memory:', memoryId);
@@ -191,18 +241,19 @@ export async function loader({ request }: LoaderFunctionArgs) {
     const chatId = url.searchParams.get('chatId');
     const type = url.searchParams.get('type');
     const limit = url.searchParams.get('limit');
+    const userId = request.headers.get('x-mem0-user-id') || chatId || 'default';
 
-    console.log('[Memory API] GET params:', { chatId, type, limit });
+    console.log('[Memory API] GET params:', { chatId, type, limit, userId });
 
     // Create Mem0 client
     const mem0Client = new MemoryClient({ apiKey });
 
     try {
-      console.log('[Memory API] Fetching memories from Mem0...');
+      console.log('[Memory API] Fetching memories from Mem0 for user:', userId);
 
-      // Get all memories for the user (chatId)
+      // Get all memories for the persistent user
       const result = (await mem0Client.getAll({
-        user_id: chatId || 'default',
+        user_id: userId,
       })) as any;
 
       const memories = ((result.results || result || []) as any[]).map((item: any) => ({

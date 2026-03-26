@@ -56,12 +56,34 @@ export function MemorySettings() {
       return;
     }
 
+    const currentApiKey = localStorage.getItem('mem0_api_key');
+
+    if (!currentApiKey) {
+      toast.error('No API key configured');
+      return;
+    }
+
     try {
-      // TODO: Implement clear all memories API endpoint
       toast.info('Clearing memories...');
 
-      // For now, just show success
-      toast.success('Memories cleared');
+      const userId = localStorage.getItem('mem0_user_id') || 'default';
+
+      const response = await fetch('/api/memory?clearAll=true', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-mem0-api-key': currentApiKey,
+          'x-mem0-user-id': userId,
+        },
+      });
+
+      const result = (await response.json()) as { success: boolean; deletedCount?: number; error?: string };
+
+      if (result.success) {
+        toast.success(`Cleared ${result.deletedCount || 0} memories`);
+      } else {
+        toast.error(result.error || 'Failed to clear memories');
+      }
     } catch {
       toast.error('Failed to clear memories');
     }
