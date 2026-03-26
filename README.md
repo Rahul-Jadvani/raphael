@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="public/logo-light-styled.png" alt="Raphael" width="200" />
-</p>
-
 <h1 align="center">RAPHAEL</h1>
 
 <p align="center">
