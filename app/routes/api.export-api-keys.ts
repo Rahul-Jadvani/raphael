@@ -1,4 +1,4 @@
-import type { LoaderFunction } from '@remix-run/node';
+import { json, type LoaderFunction } from '@remix-run/node';
 import { LLMManager } from '~/lib/modules/llm/manager';
 import { getApiKeysFromCookie } from '~/lib/api/cookies';
 
@@ -37,5 +37,5 @@ export const loader: LoaderFunction = async ({ request }) => {
     }
   }
 
-  return Response.json(apiKeys);
+  return json(apiKeys);
 };

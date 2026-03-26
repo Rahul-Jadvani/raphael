@@ -1,4 +1,4 @@
-import type { LoaderFunction } from '@remix-run/node';
+import { json, type LoaderFunction } from '@remix-run/node';
 import { LLMManager } from '~/lib/modules/llm/manager';
 import { getApiKeysFromCookie } from '~/lib/api/cookies';
 
@@ -7,14 +7,14 @@ export const loader: LoaderFunction = async ({ request }) => {
   const provider = url.searchParams.get('provider');
 
   if (!provider) {
-    return Response.json({ isSet: false });
+    return json({ isSet: false });
   }
 
   const llmManager = LLMManager.getInstance(process.env as Record<string, string>);
   const providerInstance = llmManager.getProvider(provider);
 
   if (!providerInstance || !providerInstance.config.apiTokenKey) {
-    return Response.json({ isSet: false });
+    return json({ isSet: false });
   }
 
   const envVarName = providerInstance.config.apiTokenKey;
@@ -32,5 +32,5 @@ export const loader: LoaderFunction = async ({ request }) => {
    */
   const isSet = !!(apiKeys?.[provider] || process.env[envVarName] || llmManager.env[envVarName]);
 
-  return Response.json({ isSet });
+  return json({ isSet });
 };
